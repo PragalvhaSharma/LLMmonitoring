@@ -1,0 +1,22 @@
+services:
+  ingest-service:
+    build: ./ingest-service
+    ports:
+      - "8080:8080"
+    networks:
+      - mcp-network
+
+  simulator-service:
+    build: ./simulator-service
+    environment:
+      - TARGET_URL=http://ingest-service:8080/ingest
+    env_file:
+      - ./.env
+    depends_on:
+      - ingest-service
+    networks:
+      - mcp-network
+
+networks:
+  mcp-network:
+    driver: bridge 

@@ -19,91 +19,104 @@ const events: Event[] = [];
 const MAX_EVENTS = 30;
 const TIME_WINDOW_MS = 5 * 60 * 1000;
 
-function cleanUpEvents() {
+function pruneEvents() {
     const now = Date.now();
-    
-    // Filter by time window
-    let recentEvents = events.filter(event => now - new Date(event.timestamp).getTime() < TIME_WINDOW_MS);
-    
-    // Filter by count window
-    if (recentEvents.length > MAX_EVENTS) {
-        recentEvents = recentEvents.slice(recentEvents.length - MAX_EVENTS);
-    }
-    
-    // Update events array
+    const timeLimit = now - TIME_WINDOW_MS;
+
+    const recentEvents = events.filter(event => new Date(event.timestamp).getTime() >= timeLimit);
+
     events.length = 0;
-    Array.prototype.push.apply(events, recentEvents);
+    events.push(...recentEvents);
+}
+
+function calculateMetrics() {
+    const now = Date.now();
+
+    const eventsInTimeWindow = events.filter(event => now - new Date(event.timestamp).getTime() < TIME_WINDOW_MS);
+    const eventsInCountWindow = events.slice(Math.max(events.length - MAX_EVENTS, 0));
+    
+    const relevantEvents = eventsInTimeWindow.length < eventsInCountWindow.length ? eventsInTimeWindow : eventsInCountWindow;
+
+    const totalEvents = relevantEvents.length;
+
+    if (totalEvents === 0) {
+        return {
+            totalEvents: 0,
+            avgLatencyMs: 0,
+            errorRate: 0,
+            avgConfidence: 0,
+        };
+    }
+
+    const avgLatencyMs = relevantEvents.reduce((acc, event) => acc + event.latencyMs, 0) / totalEvents;
+    const successCount = relevantEvents.filter(event => event.success).length;
+    const errorRate = 1 - (successCount / totalEvents);
+    const avgConfidence = relevantEvents.reduce((acc, event) => acc + event.confidence, 0) / totalEvents;
+
+    return {
+        totalEvents,
+        avgLatencyMs,
+        errorRate,
+        avgConfidence,
+    };
 }
 
 app.post('/ingest', (req: Request, res: Response) => {
     const event = req.body as Event;
 
-    // Basic validation
-    if (!event.timestamp || !event.sessionId || !event.intent || !event.latencyMs || event.success === undefined || !event.confidence) {
-        return res.status(400).send('Invalid event payload');
+    if (
+        typeof event.timestamp !== 'string' ||
+        typeof event.sessionId !== 'string' ||
+        typeof event.intent !== 'string' ||
+        typeof event.latencyMs !== 'number' ||
+        typeof event.success !== 'boolean' ||
+        typeof event.confidence !== 'number'
+    ) {
+        res.status(400).send('Invalid event payload: incorrect field types');
+        return;
     }
     
-    // Validate timestamp format
     if (isNaN(new Date(event.timestamp).getTime())) {
-        return res.status(400).send('Invalid timestamp format');
+        res.status(400).send('Invalid timestamp format');
+        return;
     }
 
     events.push(event);
-    cleanUpEvents();
+    pruneEvents();
 
     res.status(200).send('Event received');
 });
 
 app.get('/metrics', (req: Request, res: Response) => {
-    cleanUpEvents();
+    const metricsData = calculateMetrics();
 
-    const totalEvents = events.length;
-    if (totalEvents === 0) {
-        return res.type('text/plain').send(
+    if (metricsData.totalEvents === 0) {
+        res.type('text/plain').send(
 `voice_events_total 0
 voice_latency_ms_avg 0
 voice_error_rate 0
 voice_confidence_avg 0`
         );
+        return;
     }
 
-    const avgLatencyMs = events.reduce((acc, event) => acc + event.latencyMs, 0) / totalEvents;
-    const successCount = events.filter(event => event.success).length;
-    const errorRate = 1 - (successCount / totalEvents);
-    const avgConfidence = events.reduce((acc, event) => acc + event.confidence, 0) / totalEvents;
-
     const metrics = 
-`voice_events_total ${totalEvents}
-voice_latency_ms_avg ${avgLatencyMs.toFixed(2)}
-voice_error_rate ${errorRate.toFixed(2)}
-voice_confidence_avg ${avgConfidence.toFixed(2)}`;
+`voice_events_total ${metricsData.totalEvents}
+voice_latency_ms_avg ${metricsData.avgLatencyMs.toFixed(2)}
+voice_error_rate ${metricsData.errorRate.toFixed(2)}
+voice_confidence_avg ${metricsData.avgConfidence.toFixed(2)}`;
 
     res.type('text/plain').send(metrics);
 });
 
 app.get('/report', (req: Request, res: Response) => {
-    cleanUpEvents();
-
-    const totalEvents = events.length;
-    if (totalEvents === 0) {
-        return res.json({
-            totalEvents: 0,
-            avgLatencyMs: 0,
-            errorRate: 0,
-            avgConfidence: 0
-        });
-    }
-
-    const avgLatencyMs = events.reduce((acc, event) => acc + event.latencyMs, 0) / totalEvents;
-    const successCount = events.filter(event => event.success).length;
-    const errorRate = 1 - (successCount / totalEvents);
-    const avgConfidence = events.reduce((acc, event) => acc + event.confidence, 0) / totalEvents;
+    const metricsData = calculateMetrics();
 
     res.json({
-        totalEvents,
-        avgLatencyMs: parseFloat(avgLatencyMs.toFixed(2)),
-        errorRate: parseFloat(errorRate.toFixed(2)),
-        avgConfidence: parseFloat(avgConfidence.toFixed(2))
+        totalEvents: metricsData.totalEvents,
+        avgLatencyMs: parseFloat(metricsData.avgLatencyMs.toFixed(2)),
+        errorRate: parseFloat(metricsData.errorRate.toFixed(2)),
+        avgConfidence: parseFloat(metricsData.avgConfidence.toFixed(2))
     });
 });
 

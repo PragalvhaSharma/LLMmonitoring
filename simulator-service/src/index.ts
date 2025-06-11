@@ -21,7 +21,16 @@ const openAIClient = new AzureOpenAI({
     deployment: AZURE_OPENAI_DEPLOYMENT,
 });
 
-async function generateEvent() {
+interface Event {
+    timestamp: string;
+    sessionId: string;
+    intent: string;
+    latencyMs: number;
+    success: boolean;
+    confidence: number;
+}
+
+async function generateEvent(deployment: string): Promise<Event> {
     console.log('Generating event using Azure OpenAI...');
 
     const userPrompt = `
@@ -36,7 +45,7 @@ async function generateEvent() {
     try {
         const startTime = Date.now();
         const result = await openAIClient.chat.completions.create({
-            model: '',
+            model: deployment,
             messages: [
                 { role: 'system', content: systemPrompt },
                 { role: 'user', content: userPrompt }
@@ -51,11 +60,23 @@ async function generateEvent() {
             throw new Error('Invalid response from OpenAI');
         }
 
-        const event = JSON.parse(choice.message.content);
-        event.timestamp = new Date().toISOString();
-        event.latencyMs = latencyMs;
-        event.sessionId = uuidv4();
-        event.success = true;
+        let eventData;
+        try {
+            eventData = JSON.parse(choice.message.content);
+        } catch (parseError) {
+            console.error('Failed to parse LLM response:', choice.message.content);
+            throw new Error('Invalid JSON response from LLM');
+        }
+        
+        const event: Event = {
+            timestamp: new Date().toISOString(),
+            sessionId: uuidv4(),
+            intent: eventData.intent || 'UnknownIntent',
+            latencyMs: latencyMs,
+            success: true,
+            confidence: eventData.confidence || 0.0,
+        };
+
         console.log('Generated event:', event);
         return event;
 
@@ -65,15 +86,15 @@ async function generateEvent() {
         return {
             timestamp: new Date().toISOString(),
             sessionId: uuidv4(),
-            intent: 'BookFlight',
+            intent: 'FallbackIntent',
             latencyMs: Math.floor(Math.random() * 1000),
-            success: false,
-            confidence: Math.random()
+            success: false, // Indicate that this was a fallback
+            confidence: 0.0
         };
     }
 }
 
-async function postEvent(event: any) {
+async function postEvent(event: Event) {
     try {
         console.log(`Posting event to ${TARGET_URL}:`, event);
         await axios.post(TARGET_URL, event);
@@ -89,13 +110,21 @@ async function postEvent(event: any) {
 
 async function startSimulation() {
     console.log('Starting event simulation...');
-    const initialEvent = await generateEvent();
-    await postEvent(initialEvent);
-
-    setInterval(async () => {
-        const event = await generateEvent();
+    
+    // Check for environment variables before starting
+    if (!AZURE_OPENAI_DEPLOYMENT) {
+        console.error("Azure OpenAI deployment name is not configured. Exiting simulation.");
+        return;
+    }
+    
+    const tick = async () => {
+        const event = await generateEvent(AZURE_OPENAI_DEPLOYMENT);
         await postEvent(event);
-    }, 60000); // Every minute
+    };
+
+    // Run once immediately, then set the interval
+    tick(); 
+    setInterval(tick, 60000); // Every minute
 }
 
 startSimulation();
