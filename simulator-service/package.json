@@ -1,0 +1,26 @@
+{
+  "name": "simulator-service",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/index.js",
+  "scripts": {
+    "start": "ts-node src/index.ts",
+    "build": "tsc",
+    "serve": "node dist/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@azure/identity": "^4.10.0",
+    "@azure/openai": "^1.0.0-beta.12",
+    "@types/axios": "^0.14.4",
+    "@types/node": "^24.0.1",
+    "axios": "^1.9.0",
+    "dotenv": "^16.5.0",
+    "moment": "^2.30.1",
+    "openai": "^4.104.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
+  }
+}
