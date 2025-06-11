@@ -23,10 +23,13 @@ function pruneEvents() {
     const now = Date.now();
     const timeLimit = now - TIME_WINDOW_MS;
 
-    const recentEvents = events.filter(event => new Date(event.timestamp).getTime() >= timeLimit);
+    const firstValidIndex = events.findIndex(event => new Date(event.timestamp).getTime() >= timeLimit);
 
-    events.length = 0;
-    events.push(...recentEvents);
+    if (firstValidIndex > 0) {
+        events.splice(0, firstValidIndex);
+    } else if (firstValidIndex === -1 && events.length > 0) {
+        events.length = 0;
+    }
 }
 
 function calculateMetrics() {
