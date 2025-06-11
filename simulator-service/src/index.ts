@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { AzureOpenAI } from 'openai';
 import * as dotenv from 'dotenv';
-import moment from 'moment';
+import { v4 as uuidv4 } from 'uuid';
 
 dotenv.config();
 
@@ -17,31 +17,34 @@ if (!AZURE_OPENAI_ENDPOINT || !AZURE_OPENAI_KEY || !AZURE_OPENAI_DEPLOYMENT) {
 const openAIClient = new AzureOpenAI({
     endpoint: AZURE_OPENAI_ENDPOINT,
     apiKey: AZURE_OPENAI_KEY,
-    apiVersion: '2024-02-01',
+    apiVersion: '2024-08-01-preview',
     deployment: AZURE_OPENAI_DEPLOYMENT,
 });
 
 async function generateEvent() {
     console.log('Generating event using Azure OpenAI...');
 
-    const prompt = `
+    const userPrompt = `
         Generate a plausible JSON event for a voice agent interaction. The JSON object should have the following structure:
         {
-            "sessionId": "a random string",
-            "intent": "one of 'BookFlight', 'CheckWeather', 'OrderFood', 'PlayMusic'",
-            "latencyMs": "a number between 50 and 2000",
-            "success": "a boolean value",
+            "intent": "can be anything bookflight, checkweather, orderfood, playmusic e.t.c or more",
             "confidence": "a float between 0.0 and 1.0"
         }
-        Provide only the JSON object in your response.
     `;
+    const systemPrompt = "You are a JSON generator. You will be given instructions for a JSON object to create, and you will respond with ONLY that JSON object, and nothing else.";
 
     try {
+        const startTime = Date.now();
         const result = await openAIClient.chat.completions.create({
             model: '',
-            messages: [{ role: 'user', content: prompt }],
+            messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: userPrompt }
+            ],
             response_format: { type: 'json_object' }
         });
+        const endTime = Date.now();
+        const latencyMs = endTime - startTime;
 
         const choice = result.choices[0];
         if (!choice || !choice.message || !choice.message.content) {
@@ -49,7 +52,10 @@ async function generateEvent() {
         }
 
         const event = JSON.parse(choice.message.content);
-        event.timestamp = moment().toISOString();
+        event.timestamp = new Date().toISOString();
+        event.latencyMs = latencyMs;
+        event.sessionId = uuidv4();
+        event.success = true;
         console.log('Generated event:', event);
         return event;
 
@@ -57,11 +63,11 @@ async function generateEvent() {
         console.error('Error generating event from Azure OpenAI:', error);
         // Fallback to mock event generation on error
         return {
-            timestamp: moment().toISOString(),
-            sessionId: `session-mock-${Math.random().toString(36).substring(7)}`,
+            timestamp: new Date().toISOString(),
+            sessionId: uuidv4(),
             intent: 'BookFlight',
             latencyMs: Math.floor(Math.random() * 1000),
-            success: Math.random() > 0.1,
+            success: false,
             confidence: Math.random()
         };
     }
