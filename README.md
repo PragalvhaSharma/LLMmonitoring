@@ -12,14 +12,40 @@ This project is a simplified monitoring and observability platform for AI agents
 *   **Ingest & Metrics Service**: `https://ingest-service-1066080214358.us-central1.run.app`
 *   **Event Simulator Service**: `https://simulator-service-1066080214358.us-central1.run.app`
 
-## Data Flow
+## Data Flow Diagram
 
-1.  The `simulator-service` is a long-running process that, every 60 seconds, calls the Azure OpenAI API to generate a synthetic user event, including details like `intent` and `confidence`.
-2.  This event is then sent via an HTTP POST request to the `/ingest` endpoint of the `ingest-service`.
-3.  The `ingest-service` receives the event, validates it, and stores it in an in-memory rolling window (last 5 minutes or 30 events).
-4.  The `ingest-service` exposes two endpoints, `/metrics` and `/report`, which provide real-time analytics based on the events in the rolling window.
+```mermaid
+graph TD
+    subgraph "Event Generation"
+        A[simulator-service on Cloud Run]
+    end
 
-This creates a continuous flow of simulated data, allowing for real-time monitoring of the "AI agent's" activity.
+    subgraph "External AI Service"
+        B{Azure OpenAI API<br>GPT-4o Model}
+    end
+
+    subgraph "Event Ingestion & Reporting"
+        C[ingest-service on Cloud Run]
+    end
+
+    subgraph "End User"
+        D[Developer/User]
+    end
+
+    A -- "1. Requests event data with a JSON schema" --> B;
+    B -- "2. Returns structured JSON event" --> A;
+    A -- "3. POSTs event to /ingest" --> C;
+    C -- "4. Stores event in rolling window" --> C;
+    D -- "5. GET /metrics & /report" --> C;
+```
+
+## Data Flow Explanation
+
+1.  The `simulator-service` runs a continuous loop. Every 60 seconds, it sends a request to the **Azure OpenAI GPT-4o** model. The request includes a specific JSON schema that defines the structure of the desired event data.
+2.  We use GPT-4o specifically because of its excellent support for **structured outputs**. It reliably returns a JSON object that conforms to our schema, which minimizes the need for complex parsing or error handling on our end.
+3.  The `simulator-service` then takes this valid JSON event and sends it via an HTTP POST request to the `/ingest` endpoint of the `ingest-service`.
+4.  The `ingest-service` receives the event, validates it, and stores it in an in-memory rolling window (last 5 minutes or 30 events).
+5.  A developer or user can then access the `/metrics` and `/report` endpoints on the `ingest-service` to get real-time analytics based on the ingested events.
 
 ## How to Test the Endpoints
 
@@ -61,42 +87,29 @@ curl https://simulator-service-1066080214358.us-central1.run.app
 
 ## Code Snippets
 
-### `simulator-service`: Generating and Posting Events
+### `simulator-service`: Generating Structured Events with GPT-4o
 
-This snippet from `simulator-service/src/index.ts` shows the core simulation loop.
+This snippet from `simulator-service/src/index.ts` shows how we leverage GPT-4o's native JSON mode to get reliable, structured data.
 
 ```typescript
 // ... existing code ...
-async function startSimulation() {
-    console.log('Starting event simulation...');
-    
-    // Check for environment variables before starting
-    if (!AZURE_OPENAI_DEPLOYMENT) {
-        console.error("Azure OpenAI deployment name is not configured. Exiting simulation.");
-        return;
-    }
-    
-    const tick = async () => {
-        const event = await generateEvent(AZURE_OPENAI_DEPLOYMENT);
-        await postEvent(event);
-    };
-
-    // Run once immediately, then set the interval
-    tick(); 
-    setInterval(tick, 60000); // Every minute
-}
-
-const app = express();
-const port = process.env.PORT || 8080;
-
-app.get('/', (_req, res) => {
-    res.status(200).send('Simulator service is running. The simulation is active in the background.');
+const eventSchema = z.object({
+    intent: z.string().describe("The user's intent, e.g., 'bookFlight', 'checkWeather', 'orderFood', 'playMusic'. CAN BE ANYTHING"),
+    confidence: z.number().min(0).max(1).describe("A float between 0.0 and 1.0 representing the confidence level."),
 });
 
-app.listen(port, () => {
-    console.log(`Simulator service listening on port ${port}`);
-    startSimulation();
+// ...
+
+const result = await openAIClient.chat.completions.create({
+    model: deployment, // This is our GPT-4o deployment
+    messages: [
+        { role: 'system', content: `You are a helpful assistant that generates plausible events for a voice agent interaction based on a given schema. You must respond with a JSON object that follows the provided schema. Here is the schema: ${JSON.stringify(zodToJsonSchema(eventSchema), null, 2)}`},
+        { role: 'user', content: "Generate a new event." }
+    ],
+    // This is key: we instruct the model to only output JSON
+    response_format: { type: 'json_object' } 
 });
+// ...
 ```
 
 ### `ingest-service`: Ingesting and Storing Events
@@ -130,11 +143,7 @@ Both services are deployed as containerized applications on **Google Cloud Run**
 *   **Containerization**: Each service has a `Dockerfile` that packages it into a portable container image.
 *   **Artifact Registry**: The Docker images are stored in Google Artifact Registry.
 *   **Cloud Build**: Google Cloud Build is used to automatically build the Docker images from the source code and push them to Artifact Registry.
-*   **Cloud Run**: This serverless platform was chosen to run the containers. It automatically scales based on traffic (even though for this project, it's a constant load) and simplifies deployment. Each service gets a public HTTPS URL.
+*   **Cloud Run**: This serverless platform was chosen to run the containers. It automatically scales based on traffic, simplifies deployment, and provides each service with a public HTTPS URL. The `simulator-service` was initially deployed as a Cloud Run Job but was changed to a Service to meet the requirement of having a public URL.
 *   **Environment Variables**: Securely passed to the Cloud Run services to configure them (e.g., API keys, target URLs).
 
-This architecture was chosen because it's fast to deploy, requires no server management, and is cost-effective for this type of workload.
-
-## Time Spent
-
-*(Please fill in the approximate time you spent on this project here.)* 
+This architecture was chosen because it's fast to deploy, requires no server management, and is cost-effective for this type of workload. 
