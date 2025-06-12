@@ -2,6 +2,8 @@ import axios from 'axios';
 import { AzureOpenAI } from 'openai';
 import * as dotenv from 'dotenv';
 import { v4 as uuidv4 } from 'uuid';
+import { z } from 'zod';
+import { zodToJsonSchema } from 'zod-to-json-schema';
 
 dotenv.config();
 
@@ -9,6 +11,8 @@ const TARGET_URL = process.env.TARGET_URL || 'http://localhost:8080/ingest';
 const AZURE_OPENAI_ENDPOINT = process.env.AZURE_OPENAI_ENDPOINT;
 const AZURE_OPENAI_KEY = process.env.AZURE_OPENAI_KEY;
 const AZURE_OPENAI_DEPLOYMENT = process.env.AZURE_OPENAI_DEPLOYMENT;
+const AZURE_OPENAI_API_VERSION = process.env.AZURE_OPENAI_API_VERSION;
+
 
 if (!AZURE_OPENAI_ENDPOINT || !AZURE_OPENAI_KEY || !AZURE_OPENAI_DEPLOYMENT) {
     throw new Error('Azure OpenAI environment variables are not set');
@@ -17,8 +21,13 @@ if (!AZURE_OPENAI_ENDPOINT || !AZURE_OPENAI_KEY || !AZURE_OPENAI_DEPLOYMENT) {
 const openAIClient = new AzureOpenAI({
     endpoint: AZURE_OPENAI_ENDPOINT,
     apiKey: AZURE_OPENAI_KEY,
-    apiVersion: '2024-08-01-preview',
+    apiVersion: AZURE_OPENAI_API_VERSION,
     deployment: AZURE_OPENAI_DEPLOYMENT,
+});
+
+const eventSchema = z.object({
+    intent: z.string().describe("The user's intent, e.g., 'bookFlight', 'checkWeather', 'orderFood', 'playMusic'. CAN BE ANYTHING"),
+    confidence: z.number().min(0).max(1).describe("A float between 0.0 and 1.0 representing the confidence level."),
 });
 
 interface Event {
@@ -33,22 +42,13 @@ interface Event {
 async function generateEvent(deployment: string): Promise<Event> {
     console.log('Generating event using Azure OpenAI...');
 
-    const userPrompt = `
-        Generate a plausible JSON event for a voice agent interaction. The JSON object should have the following structure:
-        {
-            "intent": "can be anything bookflight, checkweather, orderfood, playmusic e.t.c or more",
-            "confidence": "a float between 0.0 and 1.0"
-        }
-    `;
-    const systemPrompt = "You are a JSON generator. You will be given instructions for a JSON object to create, and you will respond with ONLY that JSON object, and nothing else.";
-
     try {
         const startTime = Date.now();
         const result = await openAIClient.chat.completions.create({
             model: deployment,
             messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: userPrompt }
+                { role: 'system', content: `You are a helpful assistant that generates plausible events for a voice agent interaction based on a given schema. You must respond with a JSON object that follows the provided schema. Here is the schema: ${JSON.stringify(zodToJsonSchema(eventSchema), null, 2)}`},
+                { role: 'user', content: "Generate a new event." }
             ],
             response_format: { type: 'json_object' }
         });
