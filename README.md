@@ -4,8 +4,8 @@ This project is a simplified monitoring and observability platform for AI agents
 
 ## Project Overview
 
-*   **`ingest-service`**: A Node.js/TypeScript service that ingests simulated event data, maintains a rolling window of recent events, and exposes Prometheus-style metrics and a JSON report.
-*   **`simulator-service`**: A Node.js/TypeScript service that uses an LLM to generate plausible user interaction events and sends them to the `ingest-service`.
+- **`ingest-service`**: A Node.js/TypeScript service that ingests simulated event data, maintains a rolling window of recent events, and exposes Prometheus-style metrics and a JSON report.
+- **`simulator-service`**: A Node.js/TypeScript service that uses an LLM to generate plausible user interaction events and sends them to the `ingest-service`.
 
 ## Public URLs
 
@@ -45,7 +45,7 @@ curl https://simulator-service-1066080214358.us-central1.run.app
 
 ### Ingest Service
 
-*   **`/ingest` (POST)**: While this is primarily used by the simulator, you can manually post an event:
+- **`/ingest` (POST)**: While this is primarily used by the simulator, you can manually post an event:
     ```bash
     curl -X POST https://ingest-service-1066080214358.us-central1.run.app/ingest \
     -H "Content-Type: application/json" \
@@ -59,12 +59,12 @@ curl https://simulator-service-1066080214358.us-central1.run.app
     }'
     ```
 
-*   **`/metrics` (GET)**: View Prometheus-style metrics.
+- **`/metrics` (GET)**: View Prometheus-style metrics.
     ```bash
     curl https://ingest-service-1066080214358.us-central1.run.app/metrics
     ```
 
-*   **`/report` (GET)**: View a JSON summary report.
+- **`/report` (GET)**: View a JSON summary report.
     ```bash
     curl https://ingest-service-1066080214358.us-central1.run.app/report
     ```
@@ -124,10 +124,10 @@ app.post('/ingest', (req, res) => {
 
 Both services are deployed as containerized applications on **Google Cloud Run**.
 
-*   **Containerization**: Each service has a `Dockerfile` that packages it into a portable container image.
-*   **Artifact Registry**: The Docker images are stored in Google Artifact Registry.
-*   **Cloud Build**: Google Cloud Build is used to automatically build the Docker images from the source code and push them to Artifact Registry.
-*   **Cloud Run**: This serverless platform was chosen to run the containers. It automatically scales based on traffic, simplifies deployment, and provides each service with a public HTTPS URL. The `simulator-service` was initially deployed as a Cloud Run Job but was changed to a Service to meet the requirement of having a public URL.
-*   **Environment Variables**: Securely passed to the Cloud Run services to configure them (e.g., API keys, target URLs).
+- **Containerization**: Each service has a `Dockerfile` that packages it into a portable container image.
+- **Artifact Registry**: The Docker images are stored in Google Artifact Registry.
+- **Cloud Build**: Google Cloud Build is used to automatically build the Docker images from the source code and push them to Artifact Registry.
+- **Cloud Run**: This serverless platform was chosen to run the containers. It automatically scales based on traffic, simplifies deployment, and provides each service with a public HTTPS URL. The `simulator-service` was initially deployed as a Cloud Run Job but was changed to a Service to meet the requirement of having a public URL.
+- **Environment Variables**: Securely passed to the Cloud Run services to configure them (e.g., API keys, target URLs).
 
 This architecture was chosen because it's fast to deploy, requires no server management, and is cost-effective for this type of workload. 
