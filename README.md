@@ -7,6 +7,15 @@ This project is a simplified monitoring and observability platform for AI agents
 - **`ingest-service`**: A Node.js/TypeScript service that ingests simulated event data, maintains a rolling window of recent events, and exposes Prometheus-style metrics and a JSON report.
 - **`simulator-service`**: A Node.js/TypeScript service that uses an LLM to generate plausible user interaction events and sends them to the `ingest-service`.
 
+## Dashboard & Demo
+
+A Next.js frontend has been created to visualize the data from the monitoring service.
+
+![Voice Events Monitor Dashboard](./dashboard.png)
+
+- **Live Dashboard**: [https://next-js-dashboard-pied-tau.vercel.app/](https://next-js-dashboard-pied-tau.vercel.app/)
+- **Video Demo**: [Watch a demo on Loom](https://www.loom.com/share/ceb7d97c76e84651beeaebaa69b74c90?sid=fbb533e3-9fd0-47e5-a201-ec5ab2a36517)
+
 ## Public URLs
 
 *   **Ingest & Metrics Service**: `https://ingest-service-1066080214358.us-central1.run.app`
@@ -21,6 +30,7 @@ flowchart TD
     A -- "3: POST /ingest" --> C["ingest-service<br>(Cloud Run)"]
     C -- "4: Store in rolling window" --> C
     D["Developer /<br>User"] -- "5: GET /metrics or /report" --> C
+    E["Frontend Dashboard<br>(Vercel)"] -- "6: GET /report" --> C
 ```
 
 ## Data Flow Explanation
@@ -30,6 +40,7 @@ flowchart TD
 3.  The `simulator-service` then takes this valid JSON event and sends it via an HTTP POST request to the `/ingest` endpoint of the `ingest-service`.
 4.  The `ingest-service` receives the event, validates it, and stores it in an in-memory rolling window (last 5 minutes or 30 events).
 5.  A developer or user can then access the `/metrics` and `/report` endpoints on the `ingest-service` to get real-time analytics based on the ingested events.
+6.  A Next.js frontend dashboard running on Vercel fetches data from the `/report` endpoint to provide a rich visualization of the voice events.
 
 ## How to Test the Endpoints
 
