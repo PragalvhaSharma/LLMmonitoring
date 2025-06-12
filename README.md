@@ -15,12 +15,12 @@ This project is a simplified monitoring and observability platform for AI agents
 ## Data Flow Diagram
 
 ```mermaid
-graph TD
-    A["simulator-service on Cloud Run"] -- "1. Requests event data with a JSON schema" --> B{"Azure OpenAI API / GPT-4o Model"};
-    B -- "2. Returns structured JSON event" --> A;
-    A -- "3. POSTs event to /ingest" --> C["ingest-service on Cloud Run"];
-    C -- "4. Stores event in rolling window" --> C;
-    D["Developer/User"] -- "5. GET /metrics & /report" --> C;
+flowchart TD
+    A["simulator-service on Cloud Run"] -- "1: Request event data (JSON)" --> B["Azure OpenAI API GPT-4o Model"]
+    B -- "2: Returns structured JSON" --> A
+    A -- "3: POST /ingest" --> C["ingest-service on Cloud Run"]
+    C -- "4: Store in rolling window" --> C
+    D["Developer / User"] -- "5: GET /metrics or /report" --> C
 ```
 
 ## Data Flow Explanation
