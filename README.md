@@ -11,7 +11,8 @@ This project is a simplified monitoring and observability platform for AI agents
 
 A Next.js frontend has been created to visualize the data from the monitoring service.
 
-![Voice Events Monitor Dashboard](./dashboard.png)
+![image](https://github.com/user-attachments/assets/aa7ee5d2-bff9-4eaa-9309-319b45d16743)
+
 
 - **Live Dashboard**: [https://next-js-dashboard-pied-tau.vercel.app/](https://next-js-dashboard-pied-tau.vercel.app/)
 - **Video Demo**: [Watch a demo on Loom](https://www.loom.com/share/ceb7d97c76e84651beeaebaa69b74c90?sid=fbb533e3-9fd0-47e5-a201-ec5ab2a36517)
