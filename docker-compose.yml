@@ -11,7 +11,7 @@ services:
     environment:
       - TARGET_URL=http://ingest-service:8080/ingest
     env_file:
-      - ./.env
+      - ./simulator-service/.env
     depends_on:
       - ingest-service
     networks:

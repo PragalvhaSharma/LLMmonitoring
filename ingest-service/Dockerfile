@@ -1,28 +1,19 @@
-# Stage 1: Build the application
-FROM node:18-alpine AS builder
-
-WORKDIR /usr/src/app
+# Stage 1: Build
+FROM node:20.11.1-slim as builder
+WORKDIR /app
 
 COPY package*.json ./
-
-RUN npm install
+RUN npm ci
 
 COPY . .
-
 RUN npm run build
 
-# Stage 2: Create the production image
-FROM node:18-alpine
+# Stage 2: Production
+FROM node:20.11.1-slim
+WORKDIR /app
 
-WORKDIR /usr/src/app
-
-# Copy production dependencies from builder
-COPY package*.json ./
-RUN npm install --omit=dev
-
-# Copy the built application from the builder stage
-COPY --from=builder /usr/src/app/dist ./dist
+COPY --from=builder /app ./
+RUN npm ci --omit=dev
 
 EXPOSE 8080
-
-CMD ["node", "dist/index.js"] 
+CMD ["node", "dist/index.js"]

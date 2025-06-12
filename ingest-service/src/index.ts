@@ -112,6 +112,10 @@ voice_confidence_avg ${metricsData.avgConfidence.toFixed(2)}`;
     res.type('text/plain').send(metrics);
 });
 
+app.get('/health', (req: Request, res: Response) => {
+    res.status(200).send('OK');
+});
+
 app.get('/report', (req: Request, res: Response) => {
     const metricsData = calculateMetrics();
 
@@ -123,6 +127,8 @@ app.get('/report', (req: Request, res: Response) => {
     });
 });
 
-app.listen(port, () => {
+const serverPort = typeof port === 'string' ? parseInt(port, 10) : port;
+
+app.listen(serverPort, '0.0.0.0', () => {
     console.log(`Service A listening on port ${port}`);
 });

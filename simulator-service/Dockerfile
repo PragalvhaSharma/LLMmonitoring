@@ -1,25 +1,25 @@
 # Stage 1: Build
 # Use the specific Node.js version you're using
-FROM --platform=linux/amd64 node:20.11.1-slim as builder
+FROM node:20.11.1-slim as builder
 
 # Set the working directory
 WORKDIR /app
 
-# Copy package.json and yarn.lock
-COPY package.json yarn.lock ./
+# Copy package.json and package-lock.json
+COPY package.json package-lock.json ./
 
-# Install dependencies using yarn
-RUN yarn install --frozen-lockfile
+# Install dependencies using npm
+RUN npm ci
 
 # Copy the rest of the application source code
 COPY . .
 
 # Build the TypeScript code
-RUN yarn build
+RUN npm run build
 
 # Stage 2: Production
 # Use a lightweight base image for the final container
-FROM --platform=linux/amd64 node:20.11.1-slim
+FROM node:20.11.1-slim
 
 # Set the working directory
 WORKDIR /app
@@ -27,10 +27,10 @@ WORKDIR /app
 # Copy the built application from the builder stage
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/yarn.lock ./yarn.lock
+COPY --from=builder /app/package-lock.json ./package-lock.json
 
 # Install only production dependencies
-RUN yarn install --production --frozen-lockfile
+RUN npm ci --omit=dev
 
 # Environment variables
 ENV TARGET_URL=http://ingest-service:8080/ingest

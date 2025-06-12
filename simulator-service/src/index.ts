@@ -4,6 +4,7 @@ import * as dotenv from 'dotenv';
 import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
+import express from 'express';
 
 dotenv.config();
 
@@ -127,4 +128,14 @@ async function startSimulation() {
     setInterval(tick, 60000); // Every minute
 }
 
-startSimulation();
+const app = express();
+const port = process.env.PORT || 8080;
+
+app.get('/', (_req, res) => {
+    res.status(200).send('Simulator service is running. The simulation is active in the background.');
+});
+
+app.listen(port, () => {
+    console.log(`Simulator service listening on port ${port}`);
+    startSimulation();
+});
